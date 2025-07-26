@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import TestingSuite from "@/components/TestingSuite";
 import Dashboard from "@/components/Dashboard";
+import { WebsiteScanner } from "@/components/WebsiteScanner";
 
 const Index = () => {
   return (
@@ -9,6 +10,7 @@ const Index = () => {
       <Header />
       <HeroSection />
       <TestingSuite />
+      <WebsiteScanner />
       <Dashboard />
     </div>
   );
