@@ -2,4 +2,4 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/27008089-b7ba-44f2-be63-8d8bd09dc793
+**URL**: https://6885250e901658e42ddb4bf0--qa-guardian-nexus.netlify.app/
