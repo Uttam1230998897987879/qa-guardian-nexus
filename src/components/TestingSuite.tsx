@@ -1,8 +1,10 @@
+import { memo, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Zap, RotateCcw, Code, Target } from "lucide-react";
 
-const testingTypes = [
+const TestingSuite = memo(() => {
+  const testingTypes = useMemo(() => [
   {
     title: "Functional Testing",
     description: "Verify application features work as per requirements and user expectations",
@@ -43,9 +45,7 @@ const testingTypes = [
     bgColor: "bg-destructive/10",
     features: ["Edge case testing", "Input validation", "Range boundary checks"]
   }
-];
-
-const TestingSuite = () => {
+], []);
   return (
     <section className="py-16 px-4 bg-muted/30">
       <div className="container mx-auto">
@@ -94,6 +94,8 @@ const TestingSuite = () => {
       </div>
     </section>
   );
-};
+});
+
+TestingSuite.displayName = "TestingSuite";
 
 export default TestingSuite;

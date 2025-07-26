@@ -1,10 +1,37 @@
+import { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import heroImage from "@/assets/hero-qa-platform.jpg";
 
-const HeroSection = () => {
+const HeroSection = memo(() => {
+  const statsData = useMemo(() => [
+    {
+      icon: CheckCircle,
+      value: "98%",
+      label: "Pass Rate",
+      color: "text-success"
+    },
+    {
+      icon: AlertTriangle,
+      value: "15",
+      label: "Active Tests",
+      color: "text-warning"
+    },
+    {
+      icon: XCircle,
+      value: "2",
+      label: "Critical Issues",
+      color: "text-destructive"
+    },
+    {
+      icon: CheckCircle,
+      value: "247",
+      label: "Tests Run",
+      color: "text-primary-glow"
+    }
+  ], []);
   return (
     <section className="bg-gradient-hero py-16 px-4">
       <div className="container mx-auto">
@@ -32,26 +59,16 @@ const HeroSection = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-              <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-                <CheckCircle className="h-6 w-6 text-success mx-auto mb-1" />
-                <div className="text-2xl font-bold text-white">98%</div>
-                <div className="text-sm text-white/80">Pass Rate</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-                <AlertTriangle className="h-6 w-6 text-warning mx-auto mb-1" />
-                <div className="text-2xl font-bold text-white">15</div>
-                <div className="text-sm text-white/80">Active Tests</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-                <XCircle className="h-6 w-6 text-destructive mx-auto mb-1" />
-                <div className="text-2xl font-bold text-white">2</div>
-                <div className="text-sm text-white/80">Critical Issues</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-                <CheckCircle className="h-6 w-6 text-primary-glow mx-auto mb-1" />
-                <div className="text-2xl font-bold text-white">247</div>
-                <div className="text-sm text-white/80">Tests Run</div>
-              </div>
+              {statsData.map((stat, index) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={index} className="bg-white/10 backdrop-blur rounded-lg p-3">
+                    <Icon className={`h-6 w-6 ${stat.color} mx-auto mb-1`} />
+                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-sm text-white/80">{stat.label}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -68,6 +85,8 @@ const HeroSection = () => {
       </div>
     </section>
   );
-};
+});
+
+HeroSection.displayName = "HeroSection";
 
 export default HeroSection;

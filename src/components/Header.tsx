@@ -1,8 +1,9 @@
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Activity, Zap } from "lucide-react";
 
-const Header = () => {
+const Header = memo(() => {
   return (
     <header className="bg-card border-b border-border">
       <div className="container mx-auto px-4 py-4">
@@ -38,6 +39,8 @@ const Header = () => {
       </div>
     </header>
   );
-};
+});
+
+Header.displayName = "Header";
 
 export default Header;

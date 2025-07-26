@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useCallback, useMemo } from 'react';
 import { useToast } from "@/components/ui/use-toast"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ interface SecurityIssue {
   mitigation: string;
 }
 
-export const WebsiteScanner = () => {
+const WebsiteScanner = memo(() => {
   const { toast } = useToast();
   const [url, setUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -37,7 +37,7 @@ export const WebsiteScanner = () => {
   const [scanResults, setScanResults] = useState<SecurityIssue[]>([]);
   const [hasApiKey, setHasApiKey] = useState(!!FirecrawlService.getApiKey());
 
-  const handleSaveApiKey = async () => {
+  const handleSaveApiKey = useCallback(async () => {
     if (!apiKey.trim()) {
       toast({
         title: "Error",
@@ -51,10 +51,9 @@ export const WebsiteScanner = () => {
     if (isValid) {
       FirecrawlService.saveApiKey(apiKey);
       setHasApiKey(true);
-      setApiKey('');
       toast({
         title: "Success",
-        description: "API key saved and validated successfully",
+        description: "API key saved successfully",
       });
     } else {
       toast({
@@ -63,255 +62,267 @@ export const WebsiteScanner = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [apiKey, toast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setProgress(0);
     setScanResults([]);
     
     try {
-      if (!hasApiKey) {
-        toast({
-          title: "Error",
-          description: "Please set your Firecrawl API key first",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate URL format
-      let processedUrl = url.trim();
-      if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
-        // Check if it's an IP address
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (ipRegex.test(processedUrl)) {
-          processedUrl = `http://${processedUrl}`;
-        } else {
-          processedUrl = `https://${processedUrl}`;
-        }
-      }
-
-      setProgress(25);
-      console.log('Starting scan for URL:', processedUrl);
+      console.log('Starting website scan for URL:', url);
       
-      const result = await FirecrawlService.crawlWebsite(processedUrl);
-      setProgress(75);
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 10, 90));
+      }, 500);
+
+      const result = await FirecrawlService.crawlWebsite(url);
       
-      if (result.success && result.data) {
+      clearInterval(progressInterval);
+      setProgress(100);
+      
+      if (result.success) {
+        console.log('Crawl successful:', result.data);
+        
+        // Analyze the crawled data for security issues
         const issues = FirecrawlService.analyzeForSecurityIssues(result.data);
         setScanResults(issues);
-        setProgress(100);
         
         toast({
           title: "Scan Complete",
-          description: `Found ${issues.length} potential issues`,
+          description: `Found ${issues.length} potential issues to review`,
         });
       } else {
+        console.error('Crawl failed:', result.error);
         toast({
-          title: "Error",
+          title: "Scan Failed",
           description: result.error || "Failed to scan website",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error scanning website:', error);
+      console.error('Error during scan:', error);
       toast({
         title: "Error",
-        description: "Failed to scan website",
+        description: "An unexpected error occurred during scanning",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [url, toast]);
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = useCallback((severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-qa-critical bg-qa-critical/10 border-qa-critical/20';
-      case 'major': return 'text-qa-major bg-qa-major/10 border-qa-major/20';
-      case 'minor': return 'text-qa-minor bg-qa-minor/10 border-qa-minor/20';
-      default: return 'text-muted-foreground bg-muted border-border';
+      case 'critical': return 'text-destructive bg-destructive/10';
+      case 'major': return 'text-warning bg-warning/10';
+      case 'minor': return 'text-primary bg-primary/10';
+      default: return 'text-muted-foreground bg-muted/10';
     }
-  };
+  }, []);
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = useCallback((type: string) => {
     switch (type) {
-      case 'functional': return <CheckCircle2 className="h-4 w-4" />;
-      case 'smoke': return <Shield className="h-4 w-4" />;
-      case 'regression': return <AlertTriangle className="h-4 w-4" />;
-      case 'unit': return <XCircle className="h-4 w-4" />;
-      case 'boundary': return <Search className="h-4 w-4" />;
-      default: return <AlertTriangle className="h-4 w-4" />;
+      case 'functional': return CheckCircle2;
+      case 'smoke': return Shield;
+      case 'regression': return AlertTriangle;
+      case 'unit': return Eye;
+      case 'boundary': return XCircle;
+      default: return AlertTriangle;
     }
-  };
+  }, []);
 
-  const groupedResults = scanResults.reduce((acc, issue) => {
-    if (!acc[issue.type]) acc[issue.type] = [];
-    acc[issue.type].push(issue);
-    return acc;
-  }, {} as Record<string, SecurityIssue[]>);
+  const groupedResults = useMemo(() => {
+    return scanResults.reduce((acc, result) => {
+      if (!acc[result.type]) {
+        acc[result.type] = [];
+      }
+      acc[result.type].push(result);
+      return acc;
+    }, {} as Record<string, SecurityIssue[]>);
+  }, [scanResults]);
 
-  return (
-    <section className="py-8 px-4">
-      <div className="container mx-auto max-w-4xl">
-        <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">Website Security Scanner</h2>
-          <p className="text-muted-foreground">
-            Scan any URL or IP address to detect functional, smoke, regression, unit, and boundary value issues
-          </p>
-        </div>
+  if (!hasApiKey) {
+    return (
+      <section className="py-16 px-4 bg-background">
+        <div className="container mx-auto max-w-2xl">
+          <div className="text-center mb-8">
+            <Badge className="mb-4">Setup Required</Badge>
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Configure Firecrawl API
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Enter your Firecrawl API key to start scanning websites for quality issues.
+            </p>
+          </div>
 
-        {!hasApiKey && (
-          <Alert className="mb-6">
-            <Key className="h-4 w-4" />
-            <AlertDescription>
-              <strong>API Key Required:</strong> To use the website scanner, you need a Firecrawl API key. 
-              For production use, we recommend connecting to Supabase and storing the API key securely.
-              <a href="https://firecrawl.dev" target="_blank" rel="noopener noreferrer" className="text-primary underline ml-1">
-                Get your API key here
-              </a>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Scanner Configuration
-            </CardTitle>
-            <CardDescription>
-              Enter the website URL or IP address you want to scan for security issues
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!hasApiKey && (
-              <div className="flex gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                API Key Configuration
+              </CardTitle>
+              <CardDescription>
+                Get your API key from <a href="https://firecrawl.dev" target="_blank" rel="noopener noreferrer" className="text-primary underline">firecrawl.dev</a>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="apikey" className="text-sm font-medium">
+                  Firecrawl API Key
+                </label>
                 <Input
+                  id="apikey"
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your Firecrawl API key"
-                  className="flex-1"
+                  placeholder="fc-..."
+                  className="font-mono"
                 />
-                <Button onClick={handleSaveApiKey} variant="outline">
-                  <Key className="h-4 w-4 mr-2" />
-                  Save Key
-                </Button>
               </div>
-            )}
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com or 192.168.1.1"
-                  className="flex-1"
-                  required
-                />
-                <Button
-                  type="submit"
-                  disabled={isLoading || !hasApiKey}
-                  variant="hero"
-                >
-                  {isLoading ? (
-                    <>Scanning...</>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Start Scan
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {isLoading && (
-                <div className="space-y-2">
-                  <Progress value={progress} className="w-full" />
-                  <p className="text-sm text-muted-foreground">
-                    Analyzing website for security issues...
-                  </p>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-
-        {scanResults.length > 0 && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-foreground">Scan Results</h3>
-              <Badge variant="outline" className="text-lg px-3 py-1">
-                {scanResults.length} Issues Found
-              </Badge>
-            </div>
-
-            {Object.entries(groupedResults).map(([type, issues]) => (
-              <Card key={type}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3 capitalize">
-                    {getTypeIcon(type)}
-                    {type} Testing Issues
-                    <Badge variant="outline">{issues.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {issues.map((issue, index) => (
-                      <div key={index} className="border border-border rounded-lg p-4 bg-muted/30">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h4 className="font-semibold text-foreground">{issue.title}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge className={`text-xs ${getSeverityColor(issue.severity)}`}>
-                                {issue.severity}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="font-medium text-foreground">Location: </span>
-                            <span className="text-primary underline">{issue.location}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-foreground">Description: </span>
-                            <span className="text-muted-foreground">{issue.description}</span>
-                          </div>
-                          <div className="bg-accent/50 p-3 rounded border-l-4 border-l-primary">
-                            <span className="font-medium text-foreground">💡 Suggested Mitigation: </span>
-                            <span className="text-foreground">{issue.mitigation}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {scanResults.length === 0 && !isLoading && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Ready to Scan</h3>
-              <p className="text-muted-foreground">
-                Enter a URL or IP address above to start scanning for security issues
-              </p>
+              <Button onClick={handleSaveApiKey} className="w-full">
+                Save API Key
+              </Button>
             </CardContent>
           </Card>
-        )}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="py-16 px-4 bg-background">
+      <div className="container mx-auto">
+        <div className="text-center mb-12">
+          <Badge className="mb-4">Website Analysis</Badge>
+          <h2 className="text-3xl font-bold text-foreground mb-4">
+            Automated Quality Scanner
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            Scan any website or IP address to detect functional, smoke, regression, 
+            unit testing, and boundary value analysis issues with precise error locations.
+          </p>
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Website Scanner
+              </CardTitle>
+              <CardDescription>
+                Enter a URL or IP address to perform comprehensive quality testing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com or 192.168.1.1"
+                      className="pl-10"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Scanning..." : "Start Scan"}
+                  </Button>
+                </div>
+                
+                {isLoading && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Scanning progress</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="w-full" />
+                  </div>
+                )}
+              </form>
+            </CardContent>
+          </Card>
+
+          {scanResults.length > 0 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-2xl font-semibold mb-2">Scan Results</h3>
+                <p className="text-muted-foreground">
+                  Found {scanResults.length} issues requiring attention
+                </p>
+              </div>
+
+              {Object.entries(groupedResults).map(([type, issues]) => (
+                <Card key={type}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 capitalize">
+                      {(() => {
+                        const Icon = getTypeIcon(type);
+                        return <Icon className="h-5 w-5" />;
+                      })()}
+                      {type} Testing Issues ({issues.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {issues.map((issue, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold">{issue.title}</h4>
+                            <Badge className={getSeverityColor(issue.severity)}>
+                              {issue.severity}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-muted-foreground">{issue.description}</p>
+                          
+                          <div className="flex items-center gap-2 text-sm">
+                            <ExternalLink className="h-4 w-4" />
+                            <span className="font-medium">Location:</span>
+                            <code className="bg-muted px-2 py-1 rounded text-xs">
+                              {issue.location}
+                            </code>
+                          </div>
+                          
+                          <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              <strong>Suggested Fix:</strong> {issue.mitigation}
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {scanResults.length === 0 && !isLoading && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Ready to Scan</h3>
+                <p className="text-muted-foreground">
+                  Enter a website URL above to start comprehensive quality testing
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </section>
   );
-};
+});
+
+WebsiteScanner.displayName = "WebsiteScanner";
+
+export default WebsiteScanner;
